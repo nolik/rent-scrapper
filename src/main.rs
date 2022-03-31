@@ -6,10 +6,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // println!("{:#?}", body);
 
     let document = Html::parse_document(&body);  // Parse the HTML document
-    let selector = Selector::parse(r#"div[data-cy="search.listing"] li"#).unwrap();
-    let search_listening_el = document.select(&selector).next().unwrap();
+    let selector = Selector::parse(r#"a[data-cy="listing-item-link"]"#).unwrap();
+    // let search_listening_el = document.select(&selector).next().unwrap();
     // let title_selector = Selector::parse(r#"h3[data-cy="listing-item-title"]"#).unwrap();
-    println!("{:#?}", search_listening_el);
+    for element in document.select(&selector) {
+        println!("------------------------------");
+        println!("{:#?}", element.value());
+        // let href_selector = Selector::parse("href").unwrap();
+        println!("{:#?}", element.select(&Selector::parse(r#"article h3[data-cy="listing-item-title"]"#).unwrap()).next().unwrap().inner_html());
+        println!("{:#?}", element.select(&Selector::parse(r#"article p span"#).unwrap()).next().unwrap().inner_html());
+        println!("{:#?}", element.value().attr("href"));
+    }
+
     // for element in document.select(&selector) {
     //     println!("------------------------------");
     //     println!("{:#?}", element.text());
