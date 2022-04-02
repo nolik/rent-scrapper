@@ -1,34 +1,34 @@
 use scraper::{Html, Selector};
+use std::collections::HashSet;
+use std::thread::sleep;
+use std::time;
 
-struct Post {
-    title: String,
-    link: String,
-    area: String,
-    price: String,
-    rooms: String,
-    size: String,
-}
+const SITE_URL: &str = "https://www.otodom.pl";
+const SEARCH_URL: &str = "https://www.otodom.pl/pl/oferty/wynajem/mieszkanie/lodz";
+const TELEGRAM_SEND_MSG_URL: &str = "https://api.telegram.org/bot{BOT_TOKEN}/sendMessage";
+const CHAT_ID_PARAM: (&str, &str) = ("chat_id", "{chat_id}");
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let resp = reqwest::blocking::get("https://www.otodom.pl/pl/oferty/wynajem/mieszkanie/lodz")?;
-    let body = resp.text()?;
+    let mut posts = HashSet::new();
+    let client = reqwest::blocking::Client::new();
 
-    let document = Html::parse_document(&body);  // Parse the HTML document
-    let selector = Selector::parse(r#"a[data-cy="listing-item-link"]"#).unwrap();
-    for element in document.select(&selector) {
-        println!("------------------------------");
-        println!("{:#?}", element.value());
-        println!("Title:{:#?}", element.select(&Selector::parse(r#"article h3[data-cy="listing-item-title"]"#).unwrap()).next().unwrap().inner_html());
-        println!("Link:{:#?}", element.value().attr("href").unwrap());
-        let article_selector = Selector::parse(r#"article p"#).unwrap();
-        let mut article_iterator = element.select(&article_selector);
-        println!("Area:{:#?}", article_iterator.next().unwrap().inner_html());
-        println!("Price:{:#?}", article_iterator.next().unwrap().inner_html());
-        let span_selector = Selector::parse(r#"span"#).unwrap();
-        let mut span_iterator = article_iterator.next().unwrap().select(&span_selector);
-        println!("Rooms:{:#?}", span_iterator.next().unwrap().inner_html());
-        println!("Size:{:#?}", span_iterator.next().unwrap().inner_html());
+    loop {
+        sleep(time::Duration::from_secs(5));
+        let resp = reqwest::blocking::get(SEARCH_URL)?;
+        let body = resp.text()?;
+
+        let document = Html::parse_document(&body);
+        let selector = Selector::parse(r#"a[data-cy="listing-item-link"]"#).unwrap();
+        for element in document.select(&selector) {
+            let link = SITE_URL.to_owned() + element.value().attr("href").unwrap();
+            println!("Link:{:#?}", &link);
+            if !posts.contains(&link) {
+                let params = [CHAT_ID_PARAM, ("text", &link)];
+                let res = client.post(TELEGRAM_SEND_MSG_URL).form(&params).send()?;
+                println!("Telegram response:{:#?}", res.status());
+
+                posts.insert(link);
+            }
+        }
     }
-
-    Ok(())
 }
