@@ -7,8 +7,8 @@ use std::time;
 const OTODOM_BASE_URL: &str = "https://www.otodom.pl";
 const OTODOM_SEARCH_URL: &str = "https://www.otodom.pl/pl/oferty/wynajem/mieszkanie/lodz";
 const OLX_SEARCH_URL: &str = "https://www.olx.pl/nieruchomosci/mieszkania/wynajem/lodzkie/";
-const TELEGRAM_SEND_MSG_URL: &str = "https://api.telegram.org/xxx:xxxx/sendMessage";
-const CHAT_ID_PARAM: (&str, &str) = ("chat_id", "xxx");
+const TELEGRAM_SEND_MSG_URL: &str = "https://api.telegram.org/{TELEGRAM_BOT_ID}:{TELEGRAM_BOT_TOKEN}/sendMessage";
+const CHAT_ID_PARAM: (&str, &str) = ("chat_id", "{TELEGRAM_CHAT_ID}");
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut handled_links = HashSet::new();
