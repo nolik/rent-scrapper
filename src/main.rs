@@ -1,34 +1,67 @@
+use reqwest::blocking::Client;
 use scraper::{Html, Selector};
 use std::collections::HashSet;
 use std::thread::sleep;
 use std::time;
 
-const SITE_URL: &str = "https://www.otodom.pl";
-const SEARCH_URL: &str = "https://www.otodom.pl/pl/oferty/wynajem/mieszkanie/lodz";
-const TELEGRAM_SEND_MSG_URL: &str = "https://api.telegram.org/bot{BOT_TOKEN}/sendMessage";
-const CHAT_ID_PARAM: (&str, &str) = ("chat_id", "{chat_id}");
+const OTODOM_BASE_URL: &str = "https://www.otodom.pl";
+const OTODOM_SEARCH_URL: &str = "https://www.otodom.pl/pl/oferty/wynajem/mieszkanie/lodz";
+const OLX_SEARCH_URL: &str = "https://www.olx.pl/nieruchomosci/mieszkania/wynajem/lodzkie/";
+const TELEGRAM_SEND_MSG_URL: &str = "https://api.telegram.org/xxx:xxxx/sendMessage";
+const CHAT_ID_PARAM: (&str, &str) = ("chat_id", "xxx");
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut posts = HashSet::new();
+    let mut handled_links = HashSet::new();
     let client = reqwest::blocking::Client::new();
 
     loop {
         sleep(time::Duration::from_secs(5));
-        let resp = reqwest::blocking::get(SEARCH_URL)?;
-        let body = resp.text()?;
+        handle_otodom_posts(&client, &mut handled_links)?;
+        handle_olx_posts(&client, &mut handled_links)?;
+    }
+}
 
-        let document = Html::parse_document(&body);
-        let selector = Selector::parse(r#"a[data-cy="listing-item-link"]"#).unwrap();
-        for element in document.select(&selector) {
-            let link = SITE_URL.to_owned() + element.value().attr("href").unwrap();
-            println!("Link:{:#?}", &link);
-            if !posts.contains(&link) {
-                let params = [CHAT_ID_PARAM, ("text", &link)];
-                let res = client.post(TELEGRAM_SEND_MSG_URL).form(&params).send()?;
-                println!("Telegram response:{:#?}", res.status());
+fn handle_otodom_posts(
+    client: &Client,
+    handled_links: &mut HashSet<String>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let resp = reqwest::blocking::get(OTODOM_SEARCH_URL)?;
+    let body = resp.text()?;
 
-                posts.insert(link);
-            }
-        }
+    let document = Html::parse_document(&body);
+    let selector = Selector::parse(r#"a[data-cy="listing-item-link"]"#).unwrap();
+    for element in document.select(&selector) {
+        let link = OTODOM_BASE_URL.to_owned() + element.value().attr("href").unwrap();
+        println!("Link:{:#?}", &link);
+        handle_parsed_link(client, handled_links, link);
+    }
+    Ok(())
+}
+
+fn handle_olx_posts(client: &Client, handled_links: &mut HashSet<String>) -> Result<(), Box<dyn std::error::Error>> {
+    let resp = reqwest::blocking::get(OLX_SEARCH_URL)?;
+    let body = resp.text()?;
+    let document = Html::parse_document(&body);
+    let selector = Selector::parse(r#"a[data-cy="listing-ad-title"]"#).unwrap();
+    for element in document.select(&selector) {
+        let link = element.value().attr("href").unwrap();
+        println!("Link:{:#?}", &link);
+        handle_parsed_link(client, handled_links, link.to_string());
+    }
+    Ok(())
+}
+
+fn handle_parsed_link(client: &Client, handled_links: &mut HashSet<String>, link: String) {
+    if !handled_links.contains(&link) {
+        send_link_to_telegram(client, &link);
+        handled_links.insert(link);
+    }
+}
+
+fn send_link_to_telegram(client: &Client, link: &str) {
+    let params = [CHAT_ID_PARAM, ("text", link)];
+    match client.post(TELEGRAM_SEND_MSG_URL).form(&params).send() {
+        Ok(res) => println!("Telegram response:{:#?}", res.status()),
+        Err(e) => println!("Error sending message to Telegram: {}", e),
     }
 }
