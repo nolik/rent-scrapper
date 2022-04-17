@@ -1,4 +1,4 @@
-use reqwest::blocking::Client;
+use reqwest::blocking::{get, Client};
 use scraper::{Html, Selector};
 use std::collections::HashSet;
 use std::thread::sleep;
@@ -13,43 +13,47 @@ const CHAT_ID_PARAM: (&str, &str) = ("chat_id", "{TELEGRAM_CHAT_ID}");
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut handled_links = HashSet::new();
-    let client = reqwest::blocking::Client::new();
+    let client = Client::new();
 
     loop {
         sleep(time::Duration::from_secs(5));
-        handle_otodom_posts(&client, &mut handled_links)?;
-        handle_olx_posts(&client, &mut handled_links)?;
+        handle_otodom_posts(&client, &mut handled_links);
+        handle_olx_posts(&client, &mut handled_links);
     }
 }
 
-fn handle_otodom_posts(
-    client: &Client,
-    handled_links: &mut HashSet<String>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let resp = reqwest::blocking::get(OTODOM_SEARCH_URL)?;
-    let body = resp.text()?;
-    let document = Html::parse_document(&body);
-    let selector = Selector::parse(r#"a[data-cy="listing-item-link"]"#).unwrap();
-    for element in document.select(&selector) {
-        let link = OTODOM_BASE_URL.to_owned() + element.value().attr("href").unwrap();
-        handle_parsed_link(client, handled_links, link);
+fn handle_otodom_posts(client: &Client, handled_links: &mut HashSet<String>) {
+    match get(OTODOM_SEARCH_URL) {
+        Ok(resp) => {
+            let body = resp.text().unwrap();
+            let document = Html::parse_document(&body);
+            let selector = Selector::parse(r#"a[data-cy="listing-item-link"]"#).unwrap();
+            for element in document.select(&selector) {
+                let link = OTODOM_BASE_URL.to_owned() + element.value().attr("href").unwrap();
+                handle_parsed_link(client, handled_links, link);
+            }
+        }
+        Err(err) => {
+            println!("Failure to send otodom request: {:?}", err);
+        }
     }
-    Ok(())
 }
 
-fn handle_olx_posts(
-    client: &Client,
-    handled_links: &mut HashSet<String>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let resp = reqwest::blocking::get(OLX_SEARCH_URL)?;
-    let body = resp.text()?;
-    let document = Html::parse_document(&body);
-    let selector = Selector::parse(r#"a[data-cy="listing-ad-title"]"#).unwrap();
-    for element in document.select(&selector) {
-        let link = element.value().attr("href").unwrap();
-        handle_parsed_link(client, handled_links, link.to_string());
+fn handle_olx_posts(client: &Client, handled_links: &mut HashSet<String>) {
+    match get(OLX_SEARCH_URL) {
+        Ok(resp) => {
+            let body = resp.text().unwrap();
+            let document = Html::parse_document(&body);
+            let selector = Selector::parse(r#"a[data-cy="listing-ad-title"]"#).unwrap();
+            for element in document.select(&selector) {
+                let link = element.value().attr("href").unwrap();
+                handle_parsed_link(client, handled_links, link.to_string());
+            }
+        }
+        Err(err) => {
+            println!("Failure to send olx request: {:?}", err);
+        }
     }
-    Ok(())
 }
 
 fn handle_parsed_link(client: &Client, handled_links: &mut HashSet<String>, link: String) {
