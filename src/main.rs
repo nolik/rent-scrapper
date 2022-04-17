@@ -32,7 +32,6 @@ fn handle_otodom_posts(
     let selector = Selector::parse(r#"a[data-cy="listing-item-link"]"#).unwrap();
     for element in document.select(&selector) {
         let link = OTODOM_BASE_URL.to_owned() + element.value().attr("href").unwrap();
-        println!("Link:{:#?}", &link);
         handle_parsed_link(client, handled_links, link);
     }
     Ok(())
@@ -48,7 +47,6 @@ fn handle_olx_posts(
     let selector = Selector::parse(r#"a[data-cy="listing-ad-title"]"#).unwrap();
     for element in document.select(&selector) {
         let link = element.value().attr("href").unwrap();
-        println!("Link:{:#?}", &link);
         handle_parsed_link(client, handled_links, link.to_string());
     }
     Ok(())
@@ -56,6 +54,7 @@ fn handle_olx_posts(
 
 fn handle_parsed_link(client: &Client, handled_links: &mut HashSet<String>, link: String) {
     if !handled_links.contains(&link) {
+        println!("Link:{:#?}", &link);
         send_link_to_telegram(client, &link);
         handled_links.insert(link);
     }
