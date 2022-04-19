@@ -3,6 +3,7 @@ use scraper::{Html, Selector};
 use std::collections::HashSet;
 use std::thread::sleep;
 use std::time;
+use log::{error, info};
 
 const OTODOM_BASE_URL: &str = "https://www.otodom.pl";
 const OTODOM_SEARCH_URL: &str = "https://www.otodom.pl/pl/oferty/wynajem/mieszkanie/lodz";
@@ -12,6 +13,7 @@ const TELEGRAM_SEND_MSG_URL: &str =
 const CHAT_ID_PARAM: (&str, &str) = ("chat_id", "{TELEGRAM_CHAT_ID}");
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    env_logger::init();
     let mut handled_links = HashSet::new();
     let client = Client::new();
 
@@ -34,7 +36,7 @@ fn handle_otodom_posts(client: &Client, handled_links: &mut HashSet<String>) {
             }
         }
         Err(err) => {
-            println!("Failure to send otodom request: {:?}", err);
+            error!("Failure to send otodom request: {:?}", err);
         }
     }
 }
@@ -51,14 +53,14 @@ fn handle_olx_posts(client: &Client, handled_links: &mut HashSet<String>) {
             }
         }
         Err(err) => {
-            println!("Failure to send olx request: {:?}", err);
+            error!("Failure to send olx request: {:?}", err);
         }
     }
 }
 
 fn handle_parsed_link(client: &Client, handled_links: &mut HashSet<String>, link: String) {
     if !handled_links.contains(&link) {
-        println!("Link:{:#?}", &link);
+        info!("Link:{:#?}", &link);
         send_link_to_telegram(client, &link);
         handled_links.insert(link);
     }
@@ -67,7 +69,7 @@ fn handle_parsed_link(client: &Client, handled_links: &mut HashSet<String>, link
 fn send_link_to_telegram(client: &Client, link: &str) {
     let params = [CHAT_ID_PARAM, ("text", link)];
     match client.post(TELEGRAM_SEND_MSG_URL).form(&params).send() {
-        Ok(res) => println!("Telegram response:{:#?}", res.status()),
-        Err(e) => println!("Error sending message to Telegram: {}", e),
+        Ok(res) => info!("Telegram response:{:#?}", res.status()),
+        Err(e) => error!("Error sending message to Telegram: {}", e),
     }
 }
